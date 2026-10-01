@@ -1,0 +1,41 @@
+name: Deploy to Render
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+      DASHBOARD_DEPLOY_HOOK: ${{ secrets.RENDER_DASHBOARD_DEPLOY_HOOK }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Check deployment configuration
+        run: |
+          if [ -z "$API_DEPLOY_HOOK" ] || [ -z "$DASHBOARD_DEPLOY_HOOK" ]; then
+            echo "Render deploy hooks are not configured; skipping deployment."
+            echo "Add RENDER_API_DEPLOY_HOOK and RENDER_DASHBOARD_DEPLOY_HOOK as repository secrets."
+          fi
+
+      - name: Deploy API
+        if: env.API_DEPLOY_HOOK != '' && env.DASHBOARD_DEPLOY_HOOK != ''
+        run: curl --fail-with-body --show-error --silent --request POST "${API_DEPLOY_HOOK}&ref=${DEPLOY_SHA}"
+
+      - name: Deploy dashboard
+        if: env.API_DEPLOY_HOOK != '' && env.DASHBOARD_DEPLOY_HOOK != ''
+        run: curl --fail-with-body --show-error --silent --request POST "${DASHBOARD_DEPLOY_HOOK}&ref=${DEPLOY_SHA}"

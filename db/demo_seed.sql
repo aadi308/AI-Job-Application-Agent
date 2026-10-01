@@ -1,0 +1,87 @@
+INSERT INTO jobs (
+    company, title, url, source, description, status, ats_score, location, track, eval_summary,
+    evaluated_at, job_family, employment_type, work_mode, experience_level,
+    sponsorship_status, visa_categories, is_demo
+) VALUES
+    (
+        'Example Robotics',
+        'Machine Learning Platform Engineer',
+        'https://example.com/jobs/ml-platform-engineer',
+        'greenhouse',
+        'Build reliable model-serving platforms with Python, Kubernetes, Terraform, and AWS.',
+        'discovered',
+        92,
+        'Remote — United States',
+        'mlops_intern',
+        'Strong match across Python, Kubernetes, Terraform, AWS, and production ML operations.',
+        now(), 'ai_ml', 'full_time', 'remote', 'mid', 'available', ARRAY['h1b'], true
+    ),
+    (
+        'Sample Cloud Systems',
+        'DevOps Engineer',
+        'https://example.com/jobs/devops-engineer',
+        'lever',
+        'Operate cloud infrastructure and delivery pipelines using Docker, Terraform, and GitHub Actions.',
+        'applied',
+        86,
+        'Austin, Texas',
+        'devops',
+        'Strong infrastructure match with a smaller gap around large-scale incident ownership.',
+        now(), 'devops_cloud', 'full_time', 'hybrid', 'mid', 'not_available', ARRAY[]::TEXT[], true
+    ),
+    (
+        'Demo Analytics',
+        'MLOps Engineer',
+        'https://example.com/jobs/mlops-engineer',
+        'greenhouse',
+        'Own model deployment, MLflow experiment tracking, monitoring, and batch pipelines.',
+        'interviewing',
+        81,
+        'New York, New York',
+        'mlops_intern',
+        'Good model-delivery and monitoring alignment with room to deepen feature-store experience.',
+        now(), 'ai_ml', 'full_time', 'onsite', 'senior', 'mentioned_review_required', ARRAY['f1_opt', 'stem_opt'], true
+    ),
+    (
+        'Fictional Data Works',
+        'Data Platform Engineer',
+        'https://example.com/jobs/data-platform-engineer',
+        'lever',
+        'Develop Kafka and Airflow data systems with Python, SQL, and PostgreSQL.',
+        'discovered',
+        68,
+        'Chicago, Illinois',
+        'devops',
+        'Relevant Python and data-pipeline experience, but the role is less focused on model delivery.',
+        now(), 'data', 'contract', 'hybrid', 'mid', 'not_specified', ARRAY[]::TEXT[], true
+    ),
+    (
+        'Example Product Studio',
+        'Frontend Engineer',
+        'https://example.com/jobs/frontend-engineer',
+        'greenhouse',
+        'Build accessible product interfaces with TypeScript and React.',
+        'discovered',
+        24,
+        'Remote',
+        'devops',
+        'Low match because the role emphasizes frontend product development rather than cloud or ML systems.',
+        now(), 'software', 'internship', 'remote', 'internship', 'not_available', ARRAY['us_citizen'], true
+    )
+ON CONFLICT (url) DO UPDATE SET
+    title = EXCLUDED.title,
+    description = EXCLUDED.description,
+    status = EXCLUDED.status,
+    ats_score = EXCLUDED.ats_score,
+    location = EXCLUDED.location,
+    track = EXCLUDED.track,
+    eval_summary = EXCLUDED.eval_summary,
+    evaluated_at = EXCLUDED.evaluated_at,
+    job_family = EXCLUDED.job_family,
+    employment_type = EXCLUDED.employment_type,
+    work_mode = EXCLUDED.work_mode,
+    experience_level = EXCLUDED.experience_level,
+    sponsorship_status = EXCLUDED.sponsorship_status,
+    visa_categories = EXCLUDED.visa_categories,
+    is_demo = EXCLUDED.is_demo,
+    updated_at = now();

@@ -1,0 +1,42 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Private candidate data (keep only anonymized examples in examples/)
+master_resume.md
+resume_uploads/
+
+# Local project notes and agent/tool configuration
+PROGRESS.md
+.claude/
+.codex/
+.agents/
+
+# Python environments and generated files
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Application runtime data and generated artifacts
+chroma_data/
+outputs/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

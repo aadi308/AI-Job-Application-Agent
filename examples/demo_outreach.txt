@@ -1,0 +1,3 @@
+Hi — I’m Jordan, a machine learning engineer with hands-on experience building FastAPI model services and deploying infrastructure with Kubernetes, Terraform, GitHub Actions, and AWS. The Machine Learning Platform Engineer role at Example Robotics closely matches my work making model delivery reproducible and observable. I’d welcome the chance to learn more about the team’s platform priorities.
+
+Fictional, pre-generated demo artifact based only on examples/sample_resume.md.

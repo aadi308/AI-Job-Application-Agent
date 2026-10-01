@@ -1,0 +1,19 @@
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: job-search-test-db
+    environment:
+      POSTGRES_USER: job_search_test
+      POSTGRES_PASSWORD: job_search_test
+      POSTGRES_DB: job_search_test
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U job_search_test -d job_search_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

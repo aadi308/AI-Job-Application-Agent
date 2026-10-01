@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: ai-job-search-agent-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: off
+    healthCheckPath: /health
+    envVars:
+      - key: APP_MODE
+        value: demo
+      # Use the pooled Neon connection string and require TLS (sslmode=require).
+      - key: DATABASE_URL
+        sync: false
+
+  - type: web
+    name: ai-job-search-agent-dashboard
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: off
+    dockerCommand: /bin/sh -c 'python scripts/init_db.py && exec streamlit run app/dashboard.py --server.address 0.0.0.0 --server.port ${PORT:-8501} --server.headless true'
+    envVars:
+      - key: APP_MODE
+        value: demo
+      # Enter the same pooled Neon connection string used by the API service.
+      - key: DATABASE_URL
+        sync: false
+      # Use Render's private network for dashboard-to-API requests.
+      - key: FASTAPI_HOSTPORT
+        fromService:
+          type: web
+          name: ai-job-search-agent-api
+          property: hostport
