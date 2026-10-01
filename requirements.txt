@@ -11,7 +11,7 @@ posthog==2.5.0
 openai==1.58.1
 langgraph==1.2.10
 langchain-core==1.5.3
-streamlit==1.50.0
+streamlit==1.64.0
 pandas==2.2.3
 sqlalchemy==2.0.51
 playwright==1.62.0
