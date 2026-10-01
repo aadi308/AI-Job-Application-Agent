@@ -1,4 +1,4 @@
-# AI Job Search Agent
+# AI Job Application Agent
 
 An evidence-first job-search workspace for discovering AI/ML and MLOps roles, evaluating fit, tailoring a resume, and preparing outreach without silently inventing candidate claims.
 
