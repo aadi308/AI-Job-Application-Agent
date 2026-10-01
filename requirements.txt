@@ -7,7 +7,7 @@ pydantic==2.10.4
 pytest==8.3.4
 httpx==0.28.1
 chromadb==0.5.23
-posthog==2.5.0
+posthog==7.60.1
 openai==1.58.1
 langgraph==1.2.10
 langchain-core==1.5.3
