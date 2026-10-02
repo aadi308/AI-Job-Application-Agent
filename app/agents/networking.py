@@ -65,11 +65,13 @@ Draft the outreach message now.
             agent_name=AGENT_NAME, evaluation_status="EVALUATION_FAILED", started_at=started_at,
             job_id=state.get("job_id"), safe_error_message=str(e)[:300],
             prompt_version=PROMPT_VERSION,
+            owner_id=state.get("owner_id"),
         )
         raise
 
     record_evaluation(
         agent_name=AGENT_NAME, evaluation_status="COMPLETED", started_at=started_at,
         job_id=state.get("job_id"), routed=routed, prompt_version=PROMPT_VERSION,
+        owner_id=state.get("owner_id"),
     )
     return {"outreach_message": routed.result.content}

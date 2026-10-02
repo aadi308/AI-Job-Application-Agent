@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from pydantic import ValidationError
 
 from app.core import vector_store
+from app.candidate.context import profile_to_evidence_text
+from app.candidate.store import get_profile
 from app.db import get_connection
 from app.llm.audit import is_production_eligible, record_evaluation
 from app.llm.config import get_router
@@ -96,7 +98,9 @@ def _confidence_extractor(parsed: dict) -> float | None:
     return float(conf) if isinstance(conf, (int, float)) else None
 
 
-def evaluate_job(job: dict, resume_context: str) -> tuple[ATSEvaluation | None, dict]:
+def evaluate_job(
+    job: dict, resume_context: str, owner_id: str | None = None
+) -> tuple[ATSEvaluation | None, dict]:
     """Runs one job through the router + validates the schema. Returns (evaluation, audit_meta).
     evaluation is None if validation or all providers failed — audit_meta always describes
     what happened, for the caller to persist regardless of outcome."""
@@ -133,6 +137,7 @@ Description: {job.get('description') or 'not available — score conservatively 
             job_id=job["id"],
             safe_error_message=str(e)[:300],
             prompt_version=PROMPT_VERSION,
+            owner_id=owner_id,
         )
         return None, {"status": "EVALUATION_FAILED", "record_id": record_id, "error": str(e)}
 
@@ -153,6 +158,7 @@ Description: {job.get('description') or 'not available — score conservatively 
             agent_name=AGENT_NAME, evaluation_status="VALIDATION_FAILED", started_at=started_at,
             job_id=job["id"], routed=routed, validation_errors=errors,
             safe_error_message="schema validation failed", prompt_version=PROMPT_VERSION,
+            owner_id=owner_id,
         )
         return None, {"status": "VALIDATION_FAILED", "record_id": record_id, "error": errors}
 
@@ -166,6 +172,7 @@ Description: {job.get('description') or 'not available — score conservatively 
         agent_name=AGENT_NAME, evaluation_status="COMPLETED", started_at=started_at,
         job_id=job["id"], routed=routed, result_json=evaluation.model_dump(),
         prompt_version=PROMPT_VERSION,
+        owner_id=owner_id,
     )
     return evaluation, {
         "status": "COMPLETED", "record_id": record_id, "production_eligible": eligible,
@@ -173,26 +180,36 @@ Description: {job.get('description') or 'not available — score conservatively 
     }
 
 
-def write_evaluation(conn, job_id: int, evaluation: ATSEvaluation) -> None:
+def write_evaluation(
+    conn, job_id: int, evaluation: ATSEvaluation, owner_id: str | None = None
+) -> None:
     with conn.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE jobs
-            SET ats_score = %(ats_score)s,
-                track = %(track)s,
-                job_family = %(track)s,
-                eval_summary = %(summary)s,
-                evaluated_at = now(),
-                updated_at = now()
-            WHERE id = %(id)s
-            """,
-            {
-                "ats_score": evaluation.overall_score,
-                "track": evaluation.recommended_track,
-                "summary": evaluation.final_recommendation,
-                "id": job_id,
-            },
-        )
+        values = {
+            "owner_id": owner_id,
+            "ats_score": evaluation.overall_score,
+            "track": evaluation.recommended_track,
+            "summary": evaluation.final_recommendation,
+            "id": job_id,
+        }
+        if owner_id is None:
+            cur.execute(
+                """UPDATE jobs SET ats_score=%(ats_score)s, track=%(track)s,
+                          job_family=%(track)s, eval_summary=%(summary)s,
+                          evaluated_at=now(), updated_at=now()
+                   WHERE id=%(id)s""",
+                values,
+            )
+        else:
+            cur.execute(
+                """INSERT INTO user_job_state
+                       (owner_id, job_id, ats_score, track, eval_summary, evaluated_at, updated_at)
+                   VALUES (%(owner_id)s, %(id)s, %(ats_score)s, %(track)s, %(summary)s, now(), now())
+                   ON CONFLICT (owner_id, job_id) DO UPDATE SET
+                       ats_score=EXCLUDED.ats_score, track=EXCLUDED.track,
+                       eval_summary=EXCLUDED.eval_summary,
+                       evaluated_at=EXCLUDED.evaluated_at, updated_at=now()""",
+                values,
+            )
 
 
 def evaluate_unscored_jobs(limit: int | None = None) -> dict:
@@ -226,7 +243,7 @@ def evaluate_unscored_jobs(limit: int | None = None) -> dict:
     return {"attempted": len(jobs), "scored": scored, "failed": failed, "errors": errors}
 
 
-def evaluate_job_by_id(job_id: int) -> dict:
+def evaluate_job_by_id(job_id: int, owner_id: str | None = None) -> dict:
     """Re-evaluates one specific job through the Groq/OpenRouter router regardless of
     whether it already has an ats_score — unlike evaluate_unscored_jobs, this doesn't skip
     jobs just because jobs.ats_score is already set. Needed for jobs that were scored
@@ -240,12 +257,20 @@ def evaluate_job_by_id(job_id: int) -> dict:
         if job is None:
             raise ValueError(f"No job with id={job_id}")
 
-        resume_context = "\n\n".join(
-            vector_store.query_resume(f"{job['title']} {job.get('location') or ''}", n_results=20)
-        )
-        evaluation, meta = evaluate_job(job, resume_context)
+        if owner_id is None:
+            resume_context = "\n\n".join(
+                vector_store.query_resume(
+                    f"{job['title']} {job.get('location') or ''}", n_results=20
+                )
+            )
+        else:
+            profile = get_profile(owner_id)
+            if profile is None or not profile.approved:
+                raise ValueError("An approved candidate profile is required")
+            resume_context = profile_to_evidence_text(profile)
+        evaluation, meta = evaluate_job(job, resume_context, owner_id=owner_id)
         if evaluation is not None and meta.get("production_eligible"):
-            write_evaluation(conn, job["id"], evaluation)
+            write_evaluation(conn, job["id"], evaluation, owner_id=owner_id)
             conn.commit()
 
     return {"job_id": job_id, "evaluation": evaluation, "meta": meta}
