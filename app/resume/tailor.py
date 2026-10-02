@@ -92,7 +92,11 @@ def _profile_context(profile: CandidateProfile) -> str:
 
 
 def tailor_resume(
-    profile: CandidateProfile, company: str, title: str, description: str | None
+    profile: CandidateProfile,
+    company: str,
+    title: str,
+    description: str | None,
+    owner_id: str | None = None,
 ) -> StructuredResume:
     router = get_router()
     started_at = datetime.now(timezone.utc)
@@ -123,6 +127,7 @@ Produce your index-based selection now.
         record_evaluation(
             agent_name=AGENT_NAME, evaluation_status="EVALUATION_FAILED", started_at=started_at,
             safe_error_message=str(e)[:300], prompt_version=PROMPT_VERSION,
+            owner_id=owner_id,
         )
         raise
 
@@ -130,6 +135,7 @@ Produce your index-based selection now.
     record_evaluation(
         agent_name=AGENT_NAME, evaluation_status="COMPLETED", started_at=started_at,
         routed=routed, prompt_version=PROMPT_VERSION,
+        owner_id=owner_id,
     )
     return _build_resume(selection, profile, company=company, title=title)
 

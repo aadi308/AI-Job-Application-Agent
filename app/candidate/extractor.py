@@ -60,7 +60,9 @@ def _wrap_contact_field(data: dict | None) -> FieldWithEvidence:
     return FieldWithEvidence(value=data["value"], source=data.get("source"), status="verified")
 
 
-def extract_profile_from_resume(resume_text: str) -> CandidateProfile:
+def extract_profile_from_resume(
+    resume_text: str, owner_id: str | None = None
+) -> CandidateProfile:
     router = get_router()
     started_at = datetime.now(timezone.utc)
     messages = [
@@ -85,6 +87,7 @@ def extract_profile_from_resume(resume_text: str) -> CandidateProfile:
         record_evaluation(
             agent_name=AGENT_NAME, evaluation_status="EVALUATION_FAILED", started_at=started_at,
             safe_error_message=str(e)[:300], prompt_version=PROMPT_VERSION,
+            owner_id=owner_id,
         )
         raise
 
@@ -92,6 +95,7 @@ def extract_profile_from_resume(resume_text: str) -> CandidateProfile:
     record_evaluation(
         agent_name=AGENT_NAME, evaluation_status="COMPLETED", started_at=started_at,
         routed=routed, prompt_version=PROMPT_VERSION,
+        owner_id=owner_id,
     )
 
     contact_data = data.get("contact", {})
