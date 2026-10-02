@@ -21,11 +21,7 @@ Do not include real resumes, API keys, access tokens, or unrelated personal info
 
 ## Deployment warning
 
-Public candidate workflows must use `APP_MODE=production`. Production mode uses Supabase Auth, derives ownership from verified bearer tokens, routes private operations through FastAPI, isolates personalized PostgreSQL rows by owner, and applies per-user daily model-call quotas. `APP_MODE=demo` remains anonymous and read-only; `APP_MODE=local` must never be exposed publicly.
-
-The API service alone should receive `DATABASE_URL` and provider credentials. The Streamlit service receives only the Supabase project URL, its public anon key, and the private API address. Never provide a Supabase service-role key to either browser-facing code or this application.
-
-Application quotas reduce accidental usage but are not a billing control. Configure spending caps and alerts with each model provider, use conservative limits, and monitor usage before inviting users.
+The FastAPI and Streamlit applications currently have no built-in authentication, authorization, or rate limiting. Public deployments must keep `APP_MODE=demo`, which exposes only the allowlisted public employer-board feed and disables user-triggered mutations and paid-model actions. Before exposing the full local workflow, add access control, per-user isolation, rate limits, provider cost caps, and appropriate network restrictions.
 
 Secrets must be provided through environment variables or a deployment secret manager. Never commit `.env`, private resumes, uploaded files, generated output, local databases, or vector-store data.
 

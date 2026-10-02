@@ -19,7 +19,6 @@ def record_evaluation(
     safe_error_message: Optional[str] = None,
     result_json: Optional[dict] = None,
     prompt_version: str = "v1",
-    owner_id: Optional[str] = None,
 ) -> int:
     """One audit row per LLM call — the record Step 10's production-eligibility gate reads."""
     with get_connection() as conn:
@@ -27,11 +26,11 @@ def record_evaluation(
             cur.execute(
                 """
                 INSERT INTO llm_evaluations
-                    (owner_id, job_id, agent_name, provider, model, evaluation_source, evaluation_status,
+                    (job_id, agent_name, provider, model, evaluation_source, evaluation_status,
                      prompt_version, input_tokens, output_tokens, total_tokens, latency_ms,
                      started_at, completed_at, retry_count, fallback_used, original_provider,
                      final_provider, confidence, validation_errors, safe_error_message, result_json)
-                VALUES (%(owner_id)s, %(job_id)s, %(agent_name)s, %(provider)s, %(model)s, %(evaluation_source)s,
+                VALUES (%(job_id)s, %(agent_name)s, %(provider)s, %(model)s, %(evaluation_source)s,
                         %(evaluation_status)s, %(prompt_version)s, %(input_tokens)s, %(output_tokens)s,
                         %(total_tokens)s, %(latency_ms)s, %(started_at)s, %(completed_at)s,
                         %(retry_count)s, %(fallback_used)s, %(original_provider)s, %(final_provider)s,
@@ -39,7 +38,6 @@ def record_evaluation(
                 RETURNING id
                 """,
                 {
-                    "owner_id": owner_id,
                     "job_id": job_id,
                     "agent_name": agent_name,
                     "provider": routed.final_provider if routed else None,
@@ -68,9 +66,7 @@ def record_evaluation(
     return row_id
 
 
-def get_latest_evaluation(
-    job_id: int, agent_name: str, owner_id: Optional[str] = None
-) -> Optional[dict]:
+def get_latest_evaluation(job_id: int, agent_name: str) -> Optional[dict]:
     """Most recent audit row for this job+agent — used to re-check production eligibility
     at each downstream gate (resume tailoring, PDF generation, ...) rather than trusting
     that an earlier gate's decision is still valid."""
@@ -81,10 +77,9 @@ def get_latest_evaluation(
                 SELECT evaluation_status, evaluation_source, confidence, validation_errors
                 FROM llm_evaluations
                 WHERE job_id = %s AND agent_name = %s
-                  AND owner_id IS NOT DISTINCT FROM %s
                 ORDER BY id DESC LIMIT 1
                 """,
-                (job_id, agent_name, owner_id),
+                (job_id, agent_name),
             )
             row = cur.fetchone()
             if row is None:
