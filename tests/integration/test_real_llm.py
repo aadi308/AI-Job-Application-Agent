@@ -53,5 +53,9 @@ def test_real_ats_evaluation_with_synthetic_job(monkeypatch):
     assert evaluation is not None
     assert 0 <= evaluation.overall_score <= 100
     assert 0.0 <= evaluation.confidence <= 1.0
-    assert evaluation.recommended_track in ("devops", "mlops_intern")
+    assert evaluation.recommended_track in (
+        "ai_ml", "data", "devops_cloud", "software", "security", "qa_testing",
+        "product", "design", "sales_marketing", "hr_recruiting", "finance",
+        "healthcare", "other",
+    )
     assert meta["evaluation_source"] in ("REAL_PRIMARY", "REAL_ESCALATED", "REAL_FALLBACK")

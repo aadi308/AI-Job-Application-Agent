@@ -16,6 +16,7 @@ if not is_demo_mode():
     from app.agents.supervisor import build_graph
     from app.agents.workflow_service import resolve_review, start_review
     from app.candidate.store import get_profile
+    from app.llm.audit import get_latest_evaluation, is_production_eligible
 
 OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / "outputs"
 EXAMPLE_DIR = Path(__file__).resolve().parent.parent.parent / "examples"
@@ -72,6 +73,47 @@ def _render_generate_flow(job_id: int) -> None:
         getattr(st, kind)(message)
 
     if pending_key not in st.session_state:
+        profile = get_profile()
+        profile_ready = bool(profile and profile.approved)
+        description_ready = bool(job_id and st.session_state.get(f"job_description_ready_{job_id}", True))
+        latest_evaluation = get_latest_evaluation(job_id, agent_name="ats_evaluator")
+        evaluation_ready = bool(
+            latest_evaluation
+            and is_production_eligible(
+                evaluation_status=latest_evaluation["evaluation_status"],
+                evaluation_source=latest_evaluation["evaluation_source"],
+                confidence=latest_evaluation["confidence"],
+                validation_errors=latest_evaluation["validation_errors"],
+            )
+        )
+
+        st.markdown("**Resume readiness**")
+        checks = st.columns(3)
+        checks[0].success("Profile approved") if profile_ready else checks[0].error("Approve profile")
+        checks[1].success("Job description available") if description_ready else checks[1].error("Description missing")
+        checks[2].success("ATS evaluation verified") if evaluation_ready else checks[2].warning("Evaluation required")
+
+        if not profile_ready:
+            st.error("Complete and approve Candidate Profile before generating application materials.")
+            return
+        if not description_ready:
+            st.error("A complete job description is required for reliable tailoring.")
+            return
+        if not evaluation_ready:
+            st.info("Evaluate this job against the approved profile before tailoring the resume.")
+            if st.button("Evaluate job fit", key=f"reeval_{job_id}", type="primary"):
+                with st.spinner("Evaluating job fit (real LLM call)..."):
+                    try:
+                        result = evaluate_job_by_id(job_id)
+                    except Exception as exc:
+                        st.error(f"Evaluation failed: {exc}")
+                        return
+                if result["meta"].get("production_eligible"):
+                    st.success("Evaluation completed and passed the reliability gate.")
+                    st.rerun()
+                st.error(f"Evaluation did not pass the reliability gate: {result['meta']}")
+            return
+
         st.warning("No tailored resume generated yet for this job.")
         generated = False
         if st.button(
@@ -84,36 +126,11 @@ def _render_generate_flow(job_id: int) -> None:
                 try:
                     payload = start_review(graph, job_id)
                     generated = True
-                except Exception as e:  # candidate profile not approved, eval not eligible, etc.
+                except Exception as e:
                     st.error(f"Generation failed: {e}")
-                    if "not production-eligible" in str(e):
-                        st.session_state[f"needs_reeval_{job_id}"] = True
             if generated:
                 st.session_state[pending_key] = payload
                 st.rerun()
-
-        if st.session_state.get(f"needs_reeval_{job_id}"):
-            st.info(
-                "This job's ats_score predates the audit-trail system (or its evaluation "
-                "otherwise isn't production-eligible) — it has no verified, confident "
-                "evaluation on record, so resume generation is blocked until it's re-scored."
-            )
-            if st.button("Re-evaluate this job's ATS score", key=f"reeval_{job_id}"):
-                with st.spinner("Re-running ATS evaluation (real LLM call)..."):
-                    try:
-                        result = evaluate_job_by_id(job_id)
-                    except Exception as e:
-                        st.error(f"Re-evaluation failed: {e}")
-                        return
-                if result["meta"].get("production_eligible"):
-                    st.session_state[f"needs_reeval_{job_id}"] = False
-                    ev = result["evaluation"]
-                    st.success(
-                        f"Re-evaluated: score={ev.overall_score}, track={ev.recommended_track}, "
-                        f"confidence={ev.confidence:.2f}. Click Generate again."
-                    )
-                else:
-                    st.error(f"Still not production-eligible: {result['meta']}")
         return
 
     payload = st.session_state[pending_key]
@@ -212,6 +229,9 @@ def render_job_detail(job: pd.Series):
     with st.expander("Job description"):
         desc = job.get("description")
         st.write(desc if desc and pd.notna(desc) else "No description available.")
+    st.session_state[f"job_description_ready_{int(job['id'])}"] = bool(
+        desc and pd.notna(desc) and len(str(desc).strip()) >= 80
+    )
 
     resume_pdf_path = _find_output_file(int(job["id"]), "_resume.pdf")
     resume_md_path = _find_output_file(int(job["id"]), "_resume.md")  # pre-Phase-6 fallback

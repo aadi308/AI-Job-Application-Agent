@@ -1,0 +1,44 @@
+name: Sync public demo jobs
+
+on:
+  schedule:
+    - cron: "17 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-public-demo-jobs
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install sync dependencies
+        run: python -m pip install -r requirements-sync.txt
+      - name: Validate configuration
+        env:
+          DEMO_DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+        run: |
+          if [ -z "$DEMO_DATABASE_URL" ]; then
+            echo "DEMO_DATABASE_URL is not configured in the production GitHub environment."
+            exit 1
+          fi
+      - name: Apply migrations and sync allowlisted boards
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+          DEMO_DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+          APP_MODE: demo
+          SEED_DEMO_DATA: "false"
+        run: |
+          python scripts/init_db.py
+          python scripts/sync_demo_jobs.py

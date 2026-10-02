@@ -14,7 +14,7 @@ from app.llm.schemas import ATSEvaluation
 log = get_logger("app.agents.ats_evaluator")
 
 AGENT_NAME = "ats_evaluator"
-PROMPT_VERSION = "v2-groq"
+PROMPT_VERSION = "v3-nullable-missing-evidence"
 
 SYSTEM_PROMPT = """You are an ATS (Applicant Tracking System) compatibility evaluator for a \
 job candidate. Evaluate the role against only the supplied resume evidence, regardless of job family.
@@ -51,12 +51,17 @@ Respond with a JSON object with exactly these keys:
   "concerns": ["..."],
   "resume_recommendations": ["..."],
   "evidence": [
-    {"requirement": "...", "resume_evidence": "...", "evidence_source": "...",
+    {"requirement": "...", "resume_evidence": "string or null",
+     "evidence_source": "string or null",
      "match_type": "exact" | "strong" | "partial" | "missing" | "unclear", "confidence": 0.0-1.0}
   ],
   "confidence": 0.0-1.0,
   "final_recommendation": "2-3 sentence summary of the fit"
 }
+
+For evidence items with match_type "missing" or "unclear", set resume_evidence and
+evidence_source to null. For "exact", "strong", or "partial", both fields must contain
+specific non-empty citations from the supplied resume excerpts.
 """
 
 

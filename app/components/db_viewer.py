@@ -54,7 +54,13 @@ def fetch_jobs(
     params: dict = {}
 
     if is_demo_mode():
-        clauses.append("is_demo = true")
+        clauses.extend([
+            "is_demo = true",
+            "is_open = true",
+            "source_job_id IS NOT NULL",
+            # A broken scheduler must not leave indefinitely stale jobs presented as live.
+            "last_checked_at >= now() - interval '72 hours'",
+        ])
     if job_family:
         clauses.append("job_family = ANY(:job_family)")
         params["job_family"] = job_family
@@ -85,17 +91,19 @@ def fetch_jobs(
     if scored_only:
         clauses.append("ats_score IS NOT NULL")
     if search:
-        clauses.append("(company ILIKE :search OR title ILIKE :search)")
+        clauses.append(
+            "(company ILIKE :search OR title ILIKE :search OR description ILIKE :search)"
+        )
         params["search"] = f"%{search}%"
 
     query = f"""
         SELECT id, company, title, url, location, source, status, track, ats_score,
-               eval_summary, description, discovered_at, evaluated_at, job_family,
+               eval_summary, description, posted_at, discovered_at, evaluated_at, job_family,
                employment_type, work_mode, experience_level, sponsorship_status,
-               visa_categories
+               visa_categories, last_seen_at, last_checked_at, is_open, relevance_reasons
         FROM jobs
         WHERE {' AND '.join(clauses)}
-        ORDER BY ats_score DESC NULLS LAST, id
+        ORDER BY posted_at DESC NULLS LAST, discovered_at DESC, id DESC
     """
     return pd.read_sql(text(query), get_engine(), params=params)
 
@@ -144,10 +152,37 @@ def render_filters() -> dict:
 
 def render_table(df: pd.DataFrame):
     st.caption(f"{len(df)} job(s) match the current filters")
+    if is_demo_mode():
+        if df.empty:
+            st.warning("No currently verified matching jobs are available. The feed refreshes daily.")
+        else:
+            checked_values = pd.to_datetime(df["last_checked_at"], utc=True, errors="coerce")
+            checked = checked_values.max()
+            if pd.notna(checked):
+                st.caption(
+                    f"Employer-board feed last verified {checked.strftime('%Y-%m-%d %H:%M UTC')}. "
+                    "Listings disappear after two successful checks no longer return them; "
+                    "always confirm availability on the employer page."
+                )
+            oldest_check = checked_values.min()
+            if pd.notna(oldest_check) and oldest_check < pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=36):
+                st.warning(
+                    "Some listings have not been verified in more than 36 hours. "
+                    "Listings older than 72 hours are hidden automatically."
+                )
+        df = df.copy()
+        df["posted"] = pd.to_datetime(df["posted_at"], utc=True, errors="coerce").dt.strftime("%Y-%m-%d")
+        df["discovered"] = pd.to_datetime(df["discovered_at"], utc=True, errors="coerce").dt.strftime("%Y-%m-%d")
+        df["last verified"] = pd.to_datetime(df["last_checked_at"], utc=True, errors="coerce").dt.strftime("%Y-%m-%d")
     display_cols = [
         "id", "company", "title", "location", "work_mode", "employment_type",
         "experience_level", "sponsorship_status", "job_family", "status", "ats_score",
     ]
+    if is_demo_mode():
+        display_cols = [
+            "company", "title", "location", "posted", "discovered", "last verified",
+            "work_mode", "experience_level", "sponsorship_status",
+        ]
     event = st.dataframe(
         df[display_cols],
         hide_index=True,

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve AI Job Search Agent. Contributions should keep the project truthful, privacy-conscious, and easy to run locally.
+Thanks for helping improve AI Job Application Agent. Contributions should keep the project truthful, privacy-conscious, and easy to run locally.
 
 ## Before opening a pull request
 
@@ -21,7 +21,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 docker compose up -d postgres
-pytest tests/test_llm_router.py
+python -m pytest tests/test_llm_router.py
 ```
 
 ## Test boundaries
@@ -32,7 +32,7 @@ Keep the default contribution path deterministic and free:
 - Mock Greenhouse/Lever responses unless a test is explicitly a live-network check.
 - Use fictional candidate data and an isolated test database.
 - Do not turn on paid or live integrations in CI.
-- Real provider checks belong under `tests/integration/` and must require an explicit environment flag such as `RUN_REAL_LLM_TESTS=true`.
+- Real provider checks belong under `tests/integration/` and must require the explicit `RUN_LIVE_TESTS=true` environment flag.
 
 The existing suite still contains some local end-to-end tests that need live services or local database state. Do not add new dependencies on private local files.
 

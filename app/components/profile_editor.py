@@ -161,6 +161,10 @@ def _reextract_preserving_manual_fields(old_profile: CandidateProfile, resume_te
 
 def render_profile_editor():
     st.header("Candidate Profile")
+    st.info(
+        "Private local data: this profile is loaded from your persistent PostgreSQL volume. "
+        "It is not read from Git and is hidden completely when `APP_MODE=demo`."
+    )
 
     profile = get_profile()
 

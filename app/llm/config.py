@@ -18,29 +18,50 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 def build_router() -> LLMRouter:
-    """Validates required configuration and constructs the shared router.
+    """Validate provider configuration and construct the shared router.
 
-    OPENROUTER_API_KEY is required — it's the fallback every routing chain ends at, Groq
-    or not. GROQ_API_KEY is treated as optional: if it's absent, the router silently
-    degrades to OpenRouter-only (the app's pre-Groq behavior) rather than hard-failing —
-    consistent with "Groq is unavailable" already being one of the documented fallback
-    triggers, just evaluated once at startup instead of per-request.
+    Either provider can operate alone. OpenRouter is added as a fallback only when its
+    key is present; choosing Groq must not force users to create a second paid account.
     """
+    primary_provider = os.environ.get("LLM_PRIMARY_PROVIDER", "groq").strip().lower()
+    if primary_provider not in {"groq", "openrouter"}:
+        raise ValueError("LLM_PRIMARY_PROVIDER must be 'groq' or 'openrouter'")
+
+    fallback_requested = _env_bool("LLM_ENABLE_FALLBACK", True)
     openrouter_key = os.environ.get("OPENROUTER_API_KEY")
-    if not openrouter_key:
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if openrouter_key and openrouter_key.startswith("gsk_"):
         raise MissingAPIKeyError(
-            "OPENROUTER_API_KEY is not set — required as the fallback provider even when "
-            "Groq is configured as primary. Add it to .env."
+            "OPENROUTER_API_KEY appears to contain a Groq key (gsk_...). Move that value "
+            "to GROQ_API_KEY and leave OPENROUTER_API_KEY empty unless you have a separate "
+            "OpenRouter key."
         )
-    openrouter = OpenRouterProvider(
-        api_key=openrouter_key,
-        base_url=os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+    if groq_key and groq_key.startswith("sk-or-"):
+        raise MissingAPIKeyError(
+            "GROQ_API_KEY appears to contain an OpenRouter key (sk-or-...). Move that value "
+            "to OPENROUTER_API_KEY and select OpenRouter or configure a Groq key."
+        )
+    if primary_provider == "openrouter" and not openrouter_key:
+        raise MissingAPIKeyError(
+            "OPENROUTER_API_KEY is not set but LLM_PRIMARY_PROVIDER=openrouter. Add the "
+            "key to .env or choose groq as the primary provider."
+        )
+    if not groq_key and not openrouter_key:
+        raise MissingAPIKeyError(
+            "No LLM provider key is configured. Add GROQ_API_KEY or OPENROUTER_API_KEY to .env."
+        )
+
+    openrouter = (
+        OpenRouterProvider(
+            api_key=openrouter_key,
+            base_url=os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        )
+        if openrouter_key
+        else None
     )
     fallback_model = os.environ.get("OPENROUTER_FALLBACK_MODEL", "openai/gpt-4o-mini")
 
-    primary_provider = os.environ.get("LLM_PRIMARY_PROVIDER", "groq").strip().lower()
     groq = None
-    groq_key = os.environ.get("GROQ_API_KEY")
     if groq_key and primary_provider != "openrouter":
         groq = GroqProvider(
             api_key=groq_key,
@@ -53,7 +74,7 @@ def build_router() -> LLMRouter:
         routine_model=os.environ.get("GROQ_ROUTINE_MODEL", "openai/gpt-oss-20b"),
         strong_model=os.environ.get("GROQ_STRONG_MODEL", "openai/gpt-oss-120b"),
         fallback_model=fallback_model,
-        enable_fallback=_env_bool("LLM_ENABLE_FALLBACK", True),
+        enable_fallback=bool(groq and openrouter and fallback_requested),
         routine_confidence_threshold=float(os.environ.get("LLM_ROUTINE_CONFIDENCE_THRESHOLD", "0.85")),
         max_retries=int(os.environ.get("LLM_MAX_RETRIES", "3")),
     )

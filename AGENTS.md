@@ -1,4 +1,4 @@
-# AGENTS.md — AI Job Search System Architecture
+# AGENTS.md — AI Job Application Agent Architecture
 
 ## Objective
 Multi-agent system to find and track AI/ML Engineer and MLOps roles in the US market.
@@ -10,10 +10,10 @@ Multi-agent system to find and track AI/ML Engineer and MLOps roles in the US ma
 - Streamlit dashboard and candidate-profile review
 - Evidence-backed ATS evaluation, resume tailoring, PDF validation, and outreach drafts
 - Groq/OpenRouter routing with audit records and human approval
-- Read-only, fictional-data public demo mode (`APP_MODE=demo`)
+- Read-only, allowlisted public employer-board demo mode (`APP_MODE=demo`)
 
 ## Stack Decisions
-- **Postgres**: Docker container (docker-compose), not a local Homebrew install — user's choice, keeps it isolated/disposable.
+- **Postgres**: Docker Compose service for an isolated, disposable local database.
 - **Backend**: Python + FastAPI
 - **Scraping**: `requests` against Greenhouse (`boards-api.greenhouse.io`) and Lever (`api.lever.co`) public JSON APIs — no HTML scraping needed, both expose stable JSON endpoints.
 
@@ -24,7 +24,7 @@ Multi-agent system to find and track AI/ML Engineer and MLOps roles in the US ma
 
 ## Repository layout
 ```
-AI-Job-Search-Agent/
+AI-Job-Application-Agent/
   docker-compose.yml       # postgres service
   .env.example             # safe configuration template
   Dockerfile               # API/dashboard deployment image

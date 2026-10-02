@@ -16,10 +16,10 @@ if not demo_mode:
     from app.components.pipeline_actions import render_scrape_trigger, render_status_updater
     from app.components.profile_editor import render_profile_editor
 
-st.set_page_config(page_title="AI Job Search Dashboard", layout="wide")
+st.set_page_config(page_title="AI Job Application Agent", layout="wide")
 
 if demo_mode:
-    st.sidebar.info("Public read-only demo · fictional data · no paid model calls")
+    st.sidebar.info("Public read-only demo · daily employer-board feed · no paid model calls")
 else:
     st.sidebar.warning(
         "Private local mode · candidate details come from your persistent PostgreSQL database"
@@ -32,12 +32,14 @@ st.sidebar.divider()
 if page == "Candidate Profile":
     render_profile_editor()
 else:
-    st.title("AI Job Search Dashboard")
+    st.title("AI Job Application Agent")
 
     if demo_mode:
         st.info(
-            "This hosted demo uses fictional data and is read-only. Clone the project and run "
-            "it locally to scrape boards, edit a candidate profile, or generate new artifacts."
+            "This read-only feed tracks relevant US AI/ML roles from allowlisted employers' "
+            "public Greenhouse and Lever boards and refreshes daily. A listing being live on an "
+            "employer board reduces ghost-job risk but cannot prove active hiring; verify the "
+            "posting before applying. Clone the project for private candidate workflows."
         )
 
     if not demo_mode:

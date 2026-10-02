@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 TaskComplexity = Literal["routine", "strong"]
 
@@ -48,10 +48,24 @@ class RoutedResult(BaseModel):
 
 class EvidenceItem(BaseModel):
     requirement: str
-    resume_evidence: str
-    evidence_source: str
+    resume_evidence: Optional[str] = None
+    evidence_source: Optional[str] = None
     match_type: MatchType
-    confidence: float
+    confidence: float = Field(ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def matching_claims_must_have_sources(self):
+        """Missing/unclear requirements legitimately have no resume citation.
+
+        Positive and partial matches remain evidence-gated: allowing null there would
+        turn the schema fix into a path for unsupported candidate claims.
+        """
+        if self.match_type in {"exact", "strong", "partial"}:
+            if not self.resume_evidence or not self.evidence_source:
+                raise ValueError(
+                    f"{self.match_type} evidence requires resume_evidence and evidence_source"
+                )
+        return self
 
 
 class ATSEvaluation(BaseModel):

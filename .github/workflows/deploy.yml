@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -20,6 +21,7 @@ jobs:
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
+    environment: production
     env:
       API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
       DASHBOARD_DEPLOY_HOOK: ${{ secrets.RENDER_DASHBOARD_DEPLOY_HOOK }}
@@ -29,7 +31,7 @@ jobs:
         run: |
           if [ -z "$API_DEPLOY_HOOK" ] || [ -z "$DASHBOARD_DEPLOY_HOOK" ]; then
             echo "Render deploy hooks are not configured; skipping deployment."
-            echo "Add RENDER_API_DEPLOY_HOOK and RENDER_DASHBOARD_DEPLOY_HOOK as repository secrets."
+            echo "Add RENDER_API_DEPLOY_HOOK and RENDER_DASHBOARD_DEPLOY_HOOK to the production GitHub environment."
           fi
 
       - name: Deploy API

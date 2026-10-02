@@ -22,6 +22,7 @@ def test_greenhouse_fetch_jobs_returns_expected_shape(monkeypatch):
     payload = {
         "jobs": [
             {
+                "id": 123,
                 "company_name": "Example Labs",
                 "title": "ML Engineer",
                 "absolute_url": "https://example.test/jobs/1",
@@ -43,6 +44,7 @@ def test_greenhouse_fetch_jobs_returns_expected_shape(monkeypatch):
 def test_lever_fetch_jobs_returns_expected_shape(monkeypatch):
     payload = [
         {
+            "id": "abc-456",
             "text": "MLOps Engineer",
             "hostedUrl": "https://example.test/jobs/2",
             "createdAt": int(datetime(2026, 1, 15, tzinfo=timezone.utc).timestamp() * 1000),
@@ -58,6 +60,8 @@ def test_lever_fetch_jobs_returns_expected_shape(monkeypatch):
     assert job["source"] == "lever"
     assert job["title"]
     assert job["url"].startswith("https://")
+    assert job["source_job_id"] == "abc-456"
+    assert job["board_token"] == "palantir"
 
 
 def test_lever_fetch_jobs_raises_on_unknown_company(monkeypatch):

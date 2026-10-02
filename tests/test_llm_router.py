@@ -131,10 +131,54 @@ def test_provider_client_uses_a_short_explicit_timeout_not_the_sdk_default():
     )
 
 
-def test_missing_openrouter_key_produces_clear_startup_error(monkeypatch):
+def test_no_provider_keys_produces_clear_startup_error(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    with pytest.raises(MissingAPIKeyError, match="OPENROUTER_API_KEY"):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    with pytest.raises(MissingAPIKeyError, match="GROQ_API_KEY or OPENROUTER_API_KEY"):
         build_router()
+
+
+def test_groq_only_configuration_does_not_require_openrouter(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "dummy-groq-key")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_PRIMARY_PROVIDER", "groq")
+    monkeypatch.setenv("LLM_ENABLE_FALLBACK", "true")
+
+    router = build_router()
+
+    assert router.groq is not None
+    assert router.openrouter is None
+    assert router.enable_fallback is False
+
+
+def test_openrouter_primary_still_requires_its_key(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "dummy-groq-key")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_PRIMARY_PROVIDER", "openrouter")
+
+    with pytest.raises(MissingAPIKeyError, match="LLM_PRIMARY_PROVIDER=openrouter"):
+        build_router()
+
+
+def test_swapped_groq_key_in_openrouter_variable_is_explained(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "gsk_example_key_not_real_123456789")
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+    with pytest.raises(MissingAPIKeyError, match="appears to contain a Groq key"):
+        build_router()
+
+
+def test_all_provider_error_includes_safe_attempt_reason():
+    router = _router(
+        groq_responses=[RateLimitError("quota exhausted")],
+        openrouter_responses=[RateLimitError("fallback quota exhausted")],
+        max_retries=1,
+    )
+
+    with pytest.raises(AllProvidersFailedError, match="quota exhausted"):
+        router.generate(
+            messages=[], complexity="strong", max_completion_tokens=10, temperature=0.1
+        )
 
 
 def test_redact_strips_api_keys_and_pii():

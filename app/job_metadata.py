@@ -6,7 +6,6 @@ explicit wording from the title, location, and description and use ``unknown`` /
 """
 
 import re
-from typing import Iterable
 
 
 JOB_FAMILY_PATTERNS = {
@@ -140,8 +139,3 @@ def enrich_job(job: dict) -> dict:
         visa_categories=extract_visa_categories(description),
     )
     return enriched
-
-
-def labels(values: Iterable[str]) -> list[str]:
-    """Human-readable labels for enum-like metadata values."""
-    return [value.replace("_", " ").title() for value in values]

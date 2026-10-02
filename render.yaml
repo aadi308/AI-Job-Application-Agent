@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ai-job-search-agent-api
+    name: ai-job-application-agent-api
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
@@ -15,7 +15,7 @@ services:
         sync: false
 
   - type: web
-    name: ai-job-search-agent-dashboard
+    name: ai-job-application-agent-dashboard
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
@@ -32,5 +32,5 @@ services:
       - key: FASTAPI_HOSTPORT
         fromService:
           type: web
-          name: ai-job-search-agent-api
+          name: ai-job-application-agent-api
           property: hostport

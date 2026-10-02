@@ -29,6 +29,8 @@ def fetch_jobs(board_token: str) -> list[dict]:
 
         jobs.append(
             {
+                "source_job_id": str(job["id"]),
+                "board_token": board_token,
                 "company": job.get("company_name") or board_token,
                 "title": job["title"],
                 "url": job["absolute_url"],

@@ -21,7 +21,7 @@ Do not include real resumes, API keys, access tokens, or unrelated personal info
 
 ## Deployment warning
 
-The FastAPI and Streamlit applications currently have no built-in authentication, authorization, or rate limiting. Public deployments must keep `APP_MODE=demo`, which uses fictional data and disables mutating and paid-model actions. Before exposing the full local workflow, add access control, per-user isolation, rate limits, provider cost caps, and appropriate network restrictions.
+The FastAPI and Streamlit applications currently have no built-in authentication, authorization, or rate limiting. Public deployments must keep `APP_MODE=demo`, which exposes only the allowlisted public employer-board feed and disables user-triggered mutations and paid-model actions. Before exposing the full local workflow, add access control, per-user isolation, rate limits, provider cost caps, and appropriate network restrictions.
 
 Secrets must be provided through environment variables or a deployment secret manager. Never commit `.env`, private resumes, uploaded files, generated output, local databases, or vector-store data.
 

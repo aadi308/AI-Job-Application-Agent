@@ -22,20 +22,45 @@ CREATE TABLE jobs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     track TEXT,
     eval_summary TEXT,
-    evaluated_at TIMESTAMPTZ
-    ,job_family TEXT NOT NULL DEFAULT 'other'
-    ,employment_type TEXT NOT NULL DEFAULT 'unknown'
-    ,work_mode TEXT NOT NULL DEFAULT 'unknown'
-    ,experience_level TEXT NOT NULL DEFAULT 'unknown'
-    ,sponsorship_status TEXT NOT NULL DEFAULT 'not_specified'
-    ,visa_categories TEXT[] NOT NULL DEFAULT '{}'
-    ,is_demo BOOLEAN NOT NULL DEFAULT false
+    evaluated_at TIMESTAMPTZ,
+    job_family TEXT NOT NULL DEFAULT 'other',
+    employment_type TEXT NOT NULL DEFAULT 'unknown',
+    work_mode TEXT NOT NULL DEFAULT 'unknown',
+    experience_level TEXT NOT NULL DEFAULT 'unknown',
+    sponsorship_status TEXT NOT NULL DEFAULT 'not_specified',
+    visa_categories TEXT[] NOT NULL DEFAULT '{}',
+    is_demo BOOLEAN NOT NULL DEFAULT false,
+    source_job_id TEXT,
+    board_token TEXT,
+    last_seen_at TIMESTAMPTZ,
+    last_checked_at TIMESTAMPTZ,
+    is_open BOOLEAN NOT NULL DEFAULT true,
+    consecutive_misses INTEGER NOT NULL DEFAULT 0,
+    relevance_reasons TEXT[] NOT NULL DEFAULT '{}'
 );
 
 CREATE INDEX idx_jobs_status ON jobs (status);
 CREATE INDEX idx_jobs_company ON jobs (company);
 CREATE INDEX idx_jobs_discovery_filters ON jobs
     (job_family, employment_type, work_mode, experience_level, sponsorship_status);
+CREATE UNIQUE INDEX idx_jobs_source_identity ON jobs (source, board_token, source_job_id)
+    WHERE board_token IS NOT NULL AND source_job_id IS NOT NULL;
+CREATE INDEX idx_jobs_demo_open_freshness ON jobs
+    (is_demo, is_open, posted_at DESC, last_seen_at DESC);
+
+CREATE TABLE sync_runs (
+    id BIGSERIAL PRIMARY KEY,
+    source TEXT NOT NULL,
+    board_token TEXT NOT NULL,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    completed_at TIMESTAMPTZ,
+    status TEXT NOT NULL DEFAULT 'running',
+    fetched_count INTEGER NOT NULL DEFAULT 0,
+    relevant_count INTEGER NOT NULL DEFAULT 0,
+    inserted_count INTEGER NOT NULL DEFAULT 0,
+    closed_count INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT
+);
 
 -- Phase 5: candidate profile + answer bank
 

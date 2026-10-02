@@ -5,7 +5,7 @@ from app.models import ScrapeRequest, ScrapeResult
 from app.runtime import is_demo_mode
 from app.scrapers import greenhouse, lever
 
-app = FastAPI(title="AI Job Search Agent")
+app = FastAPI(title="AI Job Application Agent")
 
 SCRAPERS = {
     "greenhouse": greenhouse.fetch_jobs,

@@ -36,6 +36,7 @@ outputs/
 
 # Editors and operating systems
 .DS_Store
+*.ses
 Thumbs.db
 .idea/
 .vscode/

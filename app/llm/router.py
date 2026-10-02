@@ -11,6 +11,18 @@ from app.llm.schemas import EvaluationSource, RoutedResult, RoutingAttempt, Task
 log = logging.getLogger("app.llm.router")
 
 
+def _failure_message(attempts: list[RoutingAttempt]) -> str:
+    details = []
+    for attempt in attempts:
+        if not attempt.succeeded and attempt.error:
+            details.append(f"{attempt.provider}/{attempt.model}: {attempt.error}")
+    if not details:
+        return "All providers in the routing chain failed or were rejected"
+    # Provider exceptions are already sanitized at the provider boundary. Keep this
+    # concise enough for the dashboard and audit record.
+    return "All providers failed — " + "; ".join(details[-3:])[:700]
+
+
 class LLMRouter:
     """Routine request -> Groq routine model -> (low confidence) -> Groq strong model ->
     (still failing) -> OpenRouter fallback -> (still failing) -> AllProvidersFailedError.
@@ -23,7 +35,7 @@ class LLMRouter:
     def __init__(
         self,
         groq: Optional[LLMProvider],
-        openrouter: LLMProvider,
+        openrouter: Optional[LLMProvider],
         routine_model: str,
         strong_model: str,
         fallback_model: str,
@@ -121,9 +133,12 @@ class LLMRouter:
                 chain.append((self.groq, self.strong_model, "REAL_ESCALATED"))
             else:
                 chain.append((self.groq, self.strong_model, "REAL_PRIMARY"))
-        if self.enable_fallback:
+        if self.groq and self.enable_fallback and self.openrouter:
             fallback_source: EvaluationSource = "REAL_FALLBACK" if self.groq else "REAL_PRIMARY"
             chain.append((self.openrouter, self.fallback_model, fallback_source))
+        elif not self.groq and self.openrouter:
+            # OpenRouter-only mode: this is the primary provider, not a fallback.
+            chain.append((self.openrouter, self.fallback_model, "REAL_PRIMARY"))
 
         if not chain:
             raise AllProvidersFailedError("No providers configured", attempts=[])
@@ -170,6 +185,6 @@ class LLMRouter:
             )
 
         raise AllProvidersFailedError(
-            "All providers in the routing chain failed or were rejected",
+            _failure_message(attempts),
             attempts=[a.model_dump() for a in attempts],
         )

@@ -5,6 +5,7 @@ from app.resume.models import ResumeBullet, ResumeExperienceEntry, ResumeHeader,
 from app.resume.pdf import html_to_pdf
 from app.resume.pdf_validate import validate_pdf
 from app.resume.pipeline import build_diff_report, build_evidence_report, generate_tailored_resume
+from app.resume.tailor import _build_resume
 from app.resume.template import render_html
 from app.resume.validate_claims import validate_claims
 
@@ -137,6 +138,23 @@ def test_diff_and_evidence_reports_reflect_real_bullets():
 
     evidence = build_evidence_report(resume)
     assert evidence["experience"][0]["bullets"][0]["source"] == "Reduced latency by 20% using caching."
+
+
+def test_resume_builder_uses_exact_verified_bullets_and_grounded_summary():
+    profile = _make_profile(bullets=("Deployed Kubernetes services with Terraform.",))
+    selection = {
+        "summary": "Invented claim that must be ignored.",
+        "employer_selections": [{"employer_index": 0, "bullet_indices": [0]}],
+        "skill_indices": [],
+        "project_indices": [],
+        "certification_indices": [],
+    }
+    resume = _build_resume(selection, profile, company="Target Co", title="Platform Engineer")
+
+    assert resume.experience[0].bullets[0].text == "Deployed Kubernetes services with Terraform."
+    assert resume.experience[0].bullets[0].source_bullet == resume.experience[0].bullets[0].text
+    assert "Invented claim" not in resume.summary
+    assert "Platform Engineer" in resume.summary
 
 
 @pytest.mark.live
