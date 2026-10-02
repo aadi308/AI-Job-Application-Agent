@@ -2,7 +2,7 @@
 
 An evidence-first workspace for finding jobs, evaluating fit, tailoring a resume, and preparing outreach without inventing candidate claims.
 
-The project combines public Greenhouse and Lever job-board APIs, PostgreSQL, FastAPI, Streamlit, and reviewable AI-assisted workflows. It supports a full private local workspace and a safe, read-only public demo.
+The project combines public Greenhouse and Lever job-board APIs, PostgreSQL, FastAPI, Streamlit, Supabase Auth, and reviewable AI-assisted workflows. It supports a private local workspace, a read-only demo, and an authenticated multi-user deployment.
 
 > **Status:** active prototype. Generated scores and documents require human review. The project does not submit applications automatically.
 
@@ -18,6 +18,8 @@ The project combines public Greenhouse and Lever job-board APIs, PostgreSQL, Fas
 - Validate generated claims and PDFs before saving final output.
 - Prepare reviewable outreach drafts.
 - Publish a daily refreshed, allowlisted US AI/ML job feed in demo mode.
+- Give each hosted user an isolated profile, application state, evaluation history, and generated artifacts.
+- Limit model-backed evaluation and resume generation per user each day.
 
 ## How it works
 
@@ -44,8 +46,9 @@ Greenhouse / Lever APIs
 | --- | --- | --- |
 | `APP_MODE=local` | Private development and personal use | Enables imports, profile editing, evaluation, resume tailoring, and status updates |
 | `APP_MODE=demo` | Publicly hosted showcase | Shows the allowlisted employer-board feed and disables user-triggered database writes and paid-model actions |
+| `APP_MODE=production` | Public multi-user application | Requires Supabase sign-in; the dashboard calls owner-scoped FastAPI endpoints and never connects directly to PostgreSQL |
 
-Do not expose local mode publicly without authentication, authorization, per-user data isolation, rate limits, and model-cost controls.
+Do not expose local mode publicly. Use production mode for hosted candidate workflows.
 
 ## Prerequisites
 
@@ -106,20 +109,26 @@ Copy `.env.example` to `.env` and edit only the local copy. `.env` is ignored by
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `APP_MODE` | No | Selects `local` or `demo`; defaults are documented in `.env.example` |
+| `APP_MODE` | No | Selects `local`, `demo`, or `production`; defaults are documented in `.env.example` |
 | `DATABASE_URL` | Yes | PostgreSQL connection used by the application |
 | `DEMO_DATABASE_URL` | Hosted sync only | Write-capable hosted database URL stored as a GitHub environment secret |
 | `SEED_DEMO_DATA` | No | Enables fictional fixtures; keep `false` for the real public feed |
 | `FASTAPI_URL` | Custom dashboard deployments | Public API address used by Streamlit |
 | `FASTAPI_HOSTPORT` | Render Blueprint | Private API host and port supplied by Render |
+| `SUPABASE_URL` | Production | Supabase project URL used for email/password authentication |
+| `SUPABASE_ANON_KEY` | Production | Public Supabase anon key; never use the service-role key in the dashboard |
 | `GROQ_API_KEY` | Groq workflows | Groq credential; sufficient for Groq-only operation |
 | `OPENROUTER_API_KEY` | OpenRouter workflows | OpenRouter credential; optional when Groq is used without fallback |
 | `LLM_PRIMARY_PROVIDER` | No | Preferred provider, `groq` or `openrouter` |
 | `LLM_ENABLE_FALLBACK` | No | Allows the configured secondary provider after a primary failure |
 | `LLM_ROUTINE_CONFIDENCE_THRESHOLD` | No | Minimum confidence before escalation |
 | `LLM_MAX_RETRIES` | No | Maximum provider retry count |
+| `ATS_DAILY_LIMIT` | Production | Maximum fit evaluations per user per UTC day; default `3` |
+| `RESUME_DAILY_LIMIT` | Production | Shared profile-extraction/resume-generation budget per user per UTC day; default `2` |
+| `GLOBAL_ATS_DAILY_LIMIT` | Production | Maximum fit evaluations across all users per UTC day; default `30` |
+| `GLOBAL_RESUME_DAILY_LIMIT` | Production | Maximum extractions/generations across all users per UTC day; default `20` |
 
-At least one provider key is required for ATS evaluation and resume generation. Keep provider keys out of public demo deployments.
+At least one provider key is required for ATS evaluation and resume generation. In production, put it only on the API service. The Streamlit dashboard must not receive a provider key or database URL.
 
 ## Import jobs
 
@@ -209,10 +218,11 @@ Never point tests at a production database or use a real candidate record as a f
 
 ## Public deployment
 
-The repository includes a Render Blueprint for the FastAPI and Streamlit services. A practical free-tier demo setup is:
+The repository includes a Render Blueprint for the FastAPI and Streamlit services. A practical low-cost setup is:
 
 - Render for the two web services.
 - Neon for PostgreSQL.
+- Supabase Auth for user sign-up and sign-in.
 - GitHub Actions for CI, gated deployment hooks, and daily job synchronization.
 
 Free plans and quotas change; verify the current provider terms before deployment.
@@ -231,18 +241,48 @@ Free plans and quotas change; verify the current provider terms before deploymen
 | `RENDER_API_DEPLOY_HOOK` | Render deploy-hook URL for the API service |
 | `RENDER_DASHBOARD_DEPLOY_HOOK` | Render deploy-hook URL for the dashboard service |
 
-Do not add `GROQ_API_KEY`, `OPENROUTER_API_KEY`, candidate data, or resume content to the public-demo environment.
+Do not add candidate data, resume content, or model keys to GitHub. The GitHub environment needs deployment/sync secrets only; runtime secrets belong in Render.
+
+### Configure Supabase Auth
+
+1. Create a Supabase project and open **Authentication → Providers → Email**.
+2. Enable email/password sign-in. Keep email confirmation enabled for a public deployment.
+3. Copy **Project URL** and the **anon/public key** from **Project Settings → API**.
+4. Never copy the `service_role` key into this application.
+
+### Configure Render runtime secrets
+
+On `AI-Job-Application-Agent` (the API service), add:
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | Pooled Neon PostgreSQL URL with `sslmode=require` |
+| `SUPABASE_URL` | Supabase Project URL |
+| `SUPABASE_ANON_KEY` | Supabase anon/public key |
+| `GROQ_API_KEY` | Groq API key used only by the API service |
+| `APP_MODE` | `production` |
+
+On `ai-job-application-agent-dashboard`, add only:
+
+| Variable | Value |
+| --- | --- |
+| `SUPABASE_URL` | Same Supabase Project URL |
+| `SUPABASE_ANON_KEY` | Same Supabase anon/public key |
+| `APP_MODE` | `production` |
+
+The Blueprint supplies the dashboard's private `FASTAPI_HOSTPORT`. Do not add `DATABASE_URL` or `GROQ_API_KEY` to the dashboard service.
 
 ### Deploy
 
 1. Create a Neon database and retain its TLS-enabled pooled connection string.
-2. In Render, create a Blueprint from `render.yaml`.
-3. Set `DATABASE_URL` for both Render services to the Neon connection string.
-4. Add the three GitHub environment secrets above.
-5. Run **Actions → Sync public demo jobs → Run workflow** once to initialize and populate the feed.
-6. Push to `main`. A successful CI run triggers both Render deploy hooks when they are configured.
+2. Configure Supabase Auth as described above.
+3. In Render, create or update the Blueprint from `render.yaml`.
+4. Set the API and dashboard variables listed above.
+5. Add the three GitHub environment secrets above.
+6. Run **Actions → Sync public demo jobs → Run workflow** once to initialize and populate the feed.
+7. Merge a reviewed pull request to `main`. A successful CI run triggers both Render deploy hooks when they are configured.
 
-The public interface remains behaviorally read-only in `APP_MODE=demo`. The current containers run idempotent schema initialization at startup, so their database credential must support schema and data writes even though browser-triggered mutations are disabled.
+The API applies idempotent schema migrations at startup. The dashboard has no direct database access. Identity comes from the verified Supabase bearer token, and every private query is constrained by that identity.
 
 For a manually created Render dashboard service, set **Docker Command** to:
 
@@ -255,6 +295,9 @@ For a manually created Render dashboard service, set **Docker Command** to:
 - Never commit `.env`, real resumes, uploaded files, generated outputs, local databases, or vector data.
 - Never include API keys or personal data in issues, logs, screenshots, examples, or test fixtures.
 - Review LLM provider data policies before sending private resume content.
+- Production resume uploads are parsed in memory and are not saved to the container filesystem.
+- Generated private artifacts are stored under the authenticated owner's ID and are returned only through authenticated API routes.
+- Free-tier limits are not a billing guarantee. Configure provider spending limits/alerts and conservative daily application quotas before publishing.
 - Treat ATS scores and generated writing as suggestions, not hiring decisions.
 - Verify job availability and employment terms on the original employer page.
 - If a secret or private file was committed previously, rotate the credential and remove it from Git history; `.gitignore` alone cannot erase history.
