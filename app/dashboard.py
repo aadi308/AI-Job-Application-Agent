@@ -7,16 +7,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 
-from app.components.db_viewer import fetch_jobs, render_filters, render_table
-from app.components.job_inspector import render_job_detail
-from app.runtime import is_demo_mode
+from app.runtime import is_demo_mode, is_production_mode
 
 demo_mode = is_demo_mode()
-if not demo_mode:
+production_mode = is_production_mode()
+if not production_mode:
+    from app.components.db_viewer import fetch_jobs, render_filters, render_table
+    from app.components.job_inspector import render_job_detail
+if not demo_mode and not production_mode:
     from app.components.pipeline_actions import render_scrape_trigger, render_status_updater
     from app.components.profile_editor import render_profile_editor
 
 st.set_page_config(page_title="AI Job Application Agent", layout="wide")
+
+if production_mode:
+    from app.components.production_ui import render_production_app
+
+    render_production_app()
+    st.stop()
 
 if demo_mode:
     st.sidebar.info("Public read-only demo · daily employer-board feed · no paid model calls")

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ai-job-application-agent-api
+    name: AI-Job-Application-Agent
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
@@ -9,10 +9,28 @@ services:
     healthCheckPath: /health
     envVars:
       - key: APP_MODE
-        value: demo
+        value: production
       # Use the pooled Neon connection string and require TLS (sslmode=require).
       - key: DATABASE_URL
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LLM_PRIMARY_PROVIDER
+        value: groq
+      - key: LLM_ENABLE_FALLBACK
+        value: "false"
+      - key: ATS_DAILY_LIMIT
+        value: "3"
+      - key: RESUME_DAILY_LIMIT
+        value: "2"
+      - key: GLOBAL_ATS_DAILY_LIMIT
+        value: "30"
+      - key: GLOBAL_RESUME_DAILY_LIMIT
+        value: "20"
 
   - type: web
     name: ai-job-application-agent-dashboard
@@ -24,13 +42,14 @@ services:
     dockerCommand: /app/scripts/start_dashboard.sh
     envVars:
       - key: APP_MODE
-        value: demo
-      # Enter the same pooled Neon connection string used by the API service.
-      - key: DATABASE_URL
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
         sync: false
       # Use Render's private network for dashboard-to-API requests.
       - key: FASTAPI_HOSTPORT
         fromService:
           type: web
-          name: ai-job-application-agent-api
+          name: AI-Job-Application-Agent
           property: hostport

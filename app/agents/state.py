@@ -2,6 +2,7 @@ from typing import Optional, TypedDict
 
 
 class JobApplicationState(TypedDict):
+    owner_id: Optional[str]
     job_id: int
     company: str
     title: str
