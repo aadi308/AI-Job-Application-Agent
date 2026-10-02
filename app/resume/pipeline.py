@@ -31,9 +31,8 @@ def generate_tailored_resume(
     description: str | None,
     output_dir: str,
     file_prefix: str,
-    owner_id: str | None = None,
 ) -> ResumeGenerationResult:
-    resume = tailor_resume(profile, company, title, description, owner_id=owner_id)
+    resume = tailor_resume(profile, company, title, description)
     claim_report = validate_claims(resume, profile)
 
     html = render_html(resume)
