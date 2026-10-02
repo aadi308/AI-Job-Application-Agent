@@ -244,6 +244,12 @@ Do not add `GROQ_API_KEY`, `OPENROUTER_API_KEY`, candidate data, or resume conte
 
 The public interface remains behaviorally read-only in `APP_MODE=demo`. The current containers run idempotent schema initialization at startup, so their database credential must support schema and data writes even though browser-triggered mutations are disabled.
 
+For a manually created Render dashboard service, set **Docker Command** to:
+
+```text
+/app/scripts/start_dashboard.sh
+```
+
 ## Privacy and security
 
 - Never commit `.env`, real resumes, uploaded files, generated outputs, local databases, or vector data.

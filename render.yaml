@@ -21,7 +21,7 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     autoDeployTrigger: off
-    dockerCommand: /bin/sh -c 'python scripts/init_db.py && exec streamlit run app/dashboard.py --server.address 0.0.0.0 --server.port ${PORT:-8501} --server.headless true'
+    dockerCommand: /app/scripts/start_dashboard.sh
     envVars:
       - key: APP_MODE
         value: demo
